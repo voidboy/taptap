@@ -4,6 +4,7 @@ typedef struct terminal {
 	char	*screen_clear;
 	char	*cursor_move;
 	char	*foreground_color;
+	char	*background_color;
 	char	*reset_attributs;
 	bool	is_dirty;
 	bool	is_colored;

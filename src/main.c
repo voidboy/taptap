@@ -15,8 +15,8 @@ int main(int argc, char *argv[])
 	get_terminal_info();
 	get_terminal_capa();
 	setup_sigcallback();
-	select_wordlist();
 	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+	select_wordlist();
 	while (1) 
 	{
 		char c[50];

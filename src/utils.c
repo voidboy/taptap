@@ -31,10 +31,19 @@ static s_terminal terminal =
 		.is_modded = false,
 	};
 
+
 __attribute__((always_inline)) inline static void
-	change_color(const int new_color)
+	change_foreground_color(const int new_color)
 {
 	char *change = tiparm(terminal.foreground_color, new_color);
+	write(STDOUT_FILENO, change, strlen(change));
+	terminal.is_colored = true;
+}
+
+__attribute__((always_inline)) inline static void
+	change_background_color(const int new_color)
+{
+	char *change = tiparm(terminal.background_color, new_color);
 	write(STDOUT_FILENO, change, strlen(change));
 	terminal.is_colored = true;
 }
@@ -45,11 +54,11 @@ __attribute__((always_inline)) inline static void
 	const float urgency = posx / (float)terminal.number_of_columns;
 
 	if (urgency <= 0.5)
-		change_color(COLOR_GREEN);
+		change_foreground_color(COLOR_GREEN);
 	else if (urgency <= 0.75)
-		change_color(COLOR_YELLOW);
+		change_foreground_color(COLOR_YELLOW);
 	else
-		change_color(COLOR_RED);
+		change_foreground_color(COLOR_RED);
 }
 
 __attribute__((always_inline)) inline static void
@@ -194,6 +203,11 @@ void get_terminal_capa(void)
 		terminal.foreground_color == (char *)-1)
 		_abort("tigetstr(\"setaf\")",
 		(long)terminal.foreground_color, __FILE__, __LINE__);
+	terminal.background_color = tigetstr("setab");
+	if (terminal.background_color == NULL ||
+		terminal.background_color == (char *)-1)
+		_abort("tigetstr(\"setab\")",
+		(long)terminal.background_color, __FILE__, __LINE__);
 	terminal.reset_attributs = tigetstr("sgr0");
 	if (terminal.reset_attributs == NULL ||
 		terminal.reset_attributs == (char *)-1)
@@ -295,27 +309,33 @@ char *select_wordlist(void)
 		closedir(directory);
 		_abort("opendir(\"wordlists\")", 0, __FILE__, __LINE__);
 	}
-	for (int i = 0; 1; i++)
+	char input;
+	int selected = 0;
+	for (int j = 0; 1; j++)
 	{
 		screen_clear();
-		printf("%d - [%.50s]\n", 1, preview[0] + i);
-		printf("%d - [%.50s]\n", 2, preview[1] + i);
-		printf("%d - [%.50s]\n", 3, preview[2] + i);
+		for (int i = 0; i < 3; i++)
+		{
+			if (i == selected)
+			{
+				change_background_color(COLOR_WHITE);
+				change_foreground_color(COLOR_BLACK);
+				printf("%d - [%.50s]\n", i, preview[i] + j);
+				reset_color();
+			}
+			else 
+			{
+				printf("%d - [%.50s]\n", i, preview[i] + j);
+			}
+		}
+		if (read(STDIN_FILENO, &input, 1) == 1)
+		{
+			if (input == 'j' && selected > 0) selected--;
+			if (input == 'k' && selected < 2) selected++;
+		}
 		milli_sleep(500);
 	}
-	rewinddir(directory);
-	int selected = 3;
-	while (selected--)
-	{
-		current = readdir(directory);
-		if (strcmp(".",  current->d_name) == 0 ||
-			strcmp("..", current->d_name) == 0)
-		{
-			selected++; continue ;
-		}
-	}
-	printf("You selected : %s\n", current->d_name);
+	//rewinddir(directory);
 	closedir(directory);
-	sleep(1000);
 	return NULL;
 }
