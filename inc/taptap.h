@@ -16,3 +16,9 @@ typedef struct word {
 	int			y;
 	const char *value;
 } s_word;
+
+typedef struct preview {
+	char	*filename;
+	char	resume[256];
+} s_preview;
+

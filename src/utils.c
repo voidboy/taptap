@@ -280,62 +280,73 @@ void setup_sigcallback(void)
 	echo_and_canonical_modes(false);
 }
 
-char *select_wordlist(void)
+size_t get_preview(s_preview **preview)
 {
-	DIR				*directory;
+	size_t			i, counter = 0;
 	struct dirent	*current;
-	char			preview[3][256] = {{'\0'}};
+	DIR				*directory;
 
-	/* FIXME: won't work if launched outside taptap dir */
 	directory = opendir("wordlists");
 	if (directory == NULL)
 		_abort("opendir(\"wordlists\")", 0, __FILE__, __LINE__);
-	errno = 0;
-	for (int i = 1; (current = readdir(directory)) != NULL; i++)
+	while ((current = readdir(directory)) != NULL)
 	{
 		if (strcmp(".",  current->d_name) == 0 ||
 			strcmp("..", current->d_name) == 0)
-		{
-			i--; continue ;
-		}
+			continue ;
+		else 
+			counter++;
+	}
+	if ((*preview = malloc(sizeof(s_preview)* counter)) == NULL)
+		_abort("malloc", 0, __FILE__, __LINE__);
+	rewinddir(directory);
+	for (i = 0; (current = readdir(directory)) != NULL;)
+	{
+		if (strcmp(".",  current->d_name) == 0 ||
+			strcmp("..", current->d_name) == 0)
+			continue ;
 		char	path[50] = {"wordlists/"};
 		strcat(path, current->d_name);
-		FILE		*f = fopen(path, "r");
-		size_t len = fread(preview[i - 1], 1, 256, f);
-		preview[i - 1][len] = '\0';
+		FILE	*f = fopen(path, "r");
+		size_t	len = fread((*preview)[i].resume, 1, 256, f);
+		(*preview)[i].resume[len ? len - 1 : 0] = '\0';
+		(*preview)[i].filename = strdup(current->d_name);
+		++i;
 	}
-	if (errno)
-	{
-		closedir(directory);
-		_abort("opendir(\"wordlists\")", 0, __FILE__, __LINE__);
-	}
+	closedir(directory); return counter;
+}
+
+char *select_wordlist(void)
+{
+	s_preview *preview = NULL;
+	size_t counter = get_preview(&preview);
+	size_t selected = 0;
 	char input;
-	int selected = 0;
 	for (int j = 0; 1; j++)
 	{
 		screen_clear();
-		for (int i = 0; i < 3; i++)
+		for (size_t i = 0; i < counter; i++)
 		{
 			if (i == selected)
 			{
 				change_background_color(COLOR_WHITE);
 				change_foreground_color(COLOR_BLACK);
-				printf("%d - [%.50s]\n", i, preview[i] + j);
+				printf("%ld - [%-50.50s]\n", i, preview[i].resume
+					+ (j % 256));
 				reset_color();
 			}
 			else 
 			{
-				printf("%d - [%.50s]\n", i, preview[i] + j);
+				printf("%ld - [%-50.50s]\n", i, preview[i].resume);
 			}
 		}
 		if (read(STDIN_FILENO, &input, 1) == 1)
 		{
 			if (input == 'j' && selected > 0) selected--;
-			if (input == 'k' && selected < 2) selected++;
+			if (input == 'k' && selected < counter - 1) selected++;
 		}
-		milli_sleep(500);
+		milli_sleep(50);
 	}
 	//rewinddir(directory);
-	closedir(directory);
 	return NULL;
 }
