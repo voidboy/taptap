@@ -4,14 +4,18 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <term.h>
+#include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <fcntl.h>
 #include <curses.h>
 #include <string.h>
+#include <unistd.h>
 #include "taptap.h"
 #include "utils.h"
+#include "split.h"
 #define M_SIGS "Received SIGSEGV, quitting.\n"
 #define M_SIGQ "Received SIGQUIT, quitting.\n"
 #define M_SIGI "Received SIGINT, quitting.\n"
@@ -248,7 +252,6 @@ void update(void)
 	screen_clear();
 	for (unsigned long i = 0; i < sizeof(words) / sizeof(s_word); i++)
 	{
-		/* add color green, yellow, red */
 		int len = strlen(words[i].value);
 		if (words[i].x >= terminal.number_of_columns)
 			words[i].x = 0;
@@ -260,7 +263,6 @@ void update(void)
 		words[i].x += 1;
 	}
 }
-
 
 void setup_sigcallback(void)
 {
@@ -305,10 +307,16 @@ size_t get_preview(s_preview **preview)
 		if (strcmp(".",  current->d_name) == 0 ||
 			strcmp("..", current->d_name) == 0)
 			continue ;
-		char	path[50] = {"wordlists/"};
+		char	path[64] = {"wordlists/"};
 		strcat(path, current->d_name);
 		FILE	*f = fopen(path, "r");
-		size_t	len = fread((*preview)[i].resume, 1, 256, f);
+		if (f == NULL)
+				_abort("fopen", 0, __FILE__, __LINE__);
+		// TODO: Sanitize the input, replace \n \t etc.. 
+		int		len = fread((*preview)[i].resume, 1, 256, f);
+		fclose(f);
+		if (len == -1)
+				_abort("fread", -1, __FILE__, __LINE__);
 		(*preview)[i].resume[len ? len - 1 : 0] = '\0';
 		(*preview)[i].filename = strdup(current->d_name);
 		++i;
@@ -316,7 +324,27 @@ size_t get_preview(s_preview **preview)
 	closedir(directory); return counter;
 }
 
-char *select_wordlist(void)
+char *extract_file_content(const char *filename)
+{
+
+	struct stat	statbuf;
+	FILE		*f = fopen(filename, "r");
+
+	if (f == NULL)
+		_abort("fopen", 0, __FILE__, __LINE__);
+	if (stat(filename, &statbuf) == -1)
+		_abort("stat", -1, __FILE__, __LINE__);
+	char *content = malloc(sizeof(char) * (statbuf.st_size + 1));
+	if (content == NULL)
+		_abort("malloc", 0, __FILE__, __LINE__);
+	if (fread(content, 1, statbuf.st_size, f) !=
+		(size_t)statbuf.st_size)
+		_abort("fread", 0, __FILE__, __LINE__);
+	content[statbuf.st_size] = '\0';
+	return content;
+}
+
+char **select_wordlist(void)
 {
 	s_preview *preview = NULL;
 	size_t counter = get_preview(&preview);
@@ -324,29 +352,37 @@ char *select_wordlist(void)
 	char input;
 	for (int j = 0; 1; j++)
 	{
+		if (j == 256) j = 0;
 		screen_clear();
+		printf("\t\t\tpress space to select %s\n\n", preview[selected].filename);
 		for (size_t i = 0; i < counter; i++)
 		{
 			if (i == selected)
 			{
 				change_background_color(COLOR_WHITE);
 				change_foreground_color(COLOR_BLACK);
-				printf("%ld - [%-50.50s]\n", i, preview[i].resume
-					+ (j % 256));
+				printf("%15s - [%-50.50s]\n", preview[i].filename, preview[i].resume + j);
 				reset_color();
 			}
 			else 
 			{
-				printf("%ld - [%-50.50s]\n", i, preview[i].resume);
+				printf("%15s - [%-50.50s]\n", preview[i].filename, preview[i].resume);
 			}
 		}
 		if (read(STDIN_FILENO, &input, 1) == 1)
 		{
-			if (input == 'j' && selected > 0) selected--;
-			if (input == 'k' && selected < counter - 1) selected++;
+			if (input == 'j' && selected < counter - 1) selected++;
+			if (input == 'k' && selected > 0) selected--;
+			if (input == ' ') break ;
 		}
 		milli_sleep(50);
 	}
-	//rewinddir(directory);
-	return NULL;
+	char filename[64] = {"wordlists/"};
+	char *content = extract_file_content(strcat(filename, preview[selected].filename));
+	for (size_t i = 0; i < counter; i++)
+		free(preview[i].filename);
+	free(preview);
+	char **wordlist = split(content, " \n\t");
+	free(content);
+	return wordlist;
 }

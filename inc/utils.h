@@ -8,4 +8,4 @@ void display_terminal_info(void);
 void get_terminal_info();
 void get_terminal_capa();
 void update(void);
-char *select_wordlist(void);
+char **select_wordlist(void);

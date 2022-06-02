@@ -1,8 +1,8 @@
 NAME	=	taptap
 
-FLAG	= 	-Wall -Wextra -Werror -g -fsanitize=address -I ./inc 
+FLAG	= 	-Wall -Wextra -Werror -g -I ./inc 
 DEPS	=	-lncurses
-SRCS	=	src/main.c src/utils.c
+SRCS	=	src/main.c src/utils.c src/split.c
 
 CC		=	gcc
 
