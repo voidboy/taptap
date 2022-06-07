@@ -240,18 +240,16 @@ void get_terminal_info()
 		terminal.number_of_lines, __FILE__, __LINE__);
 }
 
-void update(void) 
+void update(s_word *words) 
 {
-	static s_word words[] = {
-		{ .x = 3, .y = 1, .value = "poney" }, 
-		{ .x = 1, .y = 2, .value = "aurelien" }, 
-		{ .x = 5, .y = 3, .value = "bonjour" }, 
-		{ .x = 9, .y = 4, .value = "petit" }, 
-	};
-
 	screen_clear();
-	for (unsigned long i = 0; i < sizeof(words) / sizeof(s_word); i++)
+	for (unsigned long i = 0; i < 42; i++)
 	{
+		if (words[i].x < 0)
+		{
+			words[i].x += 1;
+			continue ;
+		}
 		int len = strlen(words[i].value);
 		if (words[i].x >= terminal.number_of_columns)
 			words[i].x = 0;
@@ -282,48 +280,6 @@ void setup_sigcallback(void)
 	echo_and_canonical_modes(false);
 }
 
-size_t get_preview(s_preview **preview)
-{
-	size_t			i, counter = 0;
-	struct dirent	*current;
-	DIR				*directory;
-
-	directory = opendir("wordlists");
-	if (directory == NULL)
-		_abort("opendir(\"wordlists\")", 0, __FILE__, __LINE__);
-	while ((current = readdir(directory)) != NULL)
-	{
-		if (strcmp(".",  current->d_name) == 0 ||
-			strcmp("..", current->d_name) == 0)
-			continue ;
-		else 
-			counter++;
-	}
-	if ((*preview = malloc(sizeof(s_preview)* counter)) == NULL)
-		_abort("malloc", 0, __FILE__, __LINE__);
-	rewinddir(directory);
-	for (i = 0; (current = readdir(directory)) != NULL;)
-	{
-		if (strcmp(".",  current->d_name) == 0 ||
-			strcmp("..", current->d_name) == 0)
-			continue ;
-		char	path[64] = {"wordlists/"};
-		strcat(path, current->d_name);
-		FILE	*f = fopen(path, "r");
-		if (f == NULL)
-				_abort("fopen", 0, __FILE__, __LINE__);
-		// TODO: Sanitize the input, replace \n \t etc.. 
-		int		len = fread((*preview)[i].resume, 1, 256, f);
-		fclose(f);
-		if (len == -1)
-				_abort("fread", -1, __FILE__, __LINE__);
-		(*preview)[i].resume[len ? len - 1 : 0] = '\0';
-		(*preview)[i].filename = strdup(current->d_name);
-		++i;
-	}
-	closedir(directory); return counter;
-}
-
 char *extract_file_content(const char *filename)
 {
 
@@ -344,29 +300,68 @@ char *extract_file_content(const char *filename)
 	return content;
 }
 
+size_t get_entries(s_entry **entries)
+{
+	size_t			i, counter = 0;
+	struct dirent	*current;
+	DIR				*directory;
+
+	directory = opendir("wordlists");
+	if (directory == NULL)
+		_abort("opendir(\"wordlists\")", 0, __FILE__, __LINE__);
+	while ((current = readdir(directory)) != NULL)
+	{
+		if (strcmp(".",  current->d_name) == 0 ||
+			strcmp("..", current->d_name) == 0)
+			continue ;
+		else 
+			counter++;
+	}
+	if ((*entries = malloc(sizeof(s_entry)* counter)) == NULL)
+		_abort("malloc", 0, __FILE__, __LINE__);
+	rewinddir(directory);
+	for (i = 0; (current = readdir(directory)) != NULL;)
+	{
+		if (strcmp(".",  current->d_name) == 0 ||
+			strcmp("..", current->d_name) == 0)
+			continue ;
+		char	path[64] = {"wordlists/"};
+		(*entries)[i].content = extract_file_content(
+				strcat(path, current->d_name));
+		(*entries)[i].filename = strdup(current->d_name);
+		(*entries)[i].words_counter = count_words(
+				(*entries)[i].content, " \n\t");
+		++i;
+	}
+	closedir(directory); return counter;
+}
+
 char **select_wordlist(void)
 {
-	s_preview *preview = NULL;
-	size_t counter = get_preview(&preview);
+	s_entry *entries = NULL;
+	size_t counter = get_entries(&entries);
 	size_t selected = 0;
 	char input;
 	for (int j = 0; 1; j++)
 	{
 		if (j == 256) j = 0;
 		screen_clear();
-		printf("\t\t\tpress space to select %s\n\n", preview[selected].filename);
+		printf("\t\t\t\tpress space to select %s\n\n", entries[selected].filename);
 		for (size_t i = 0; i < counter; i++)
 		{
 			if (i == selected)
 			{
 				change_background_color(COLOR_WHITE);
 				change_foreground_color(COLOR_BLACK);
-				printf("%15s - [%-50.50s]\n", preview[i].filename, preview[i].resume + j);
+				// FIXME: Sanitize preview, remove \n\t etc..
+				printf("%15s - (%4lu words) [%-50.50s]\n", entries[i].filename,
+					entries[i].words_counter, entries[i].content + j);
 				reset_color();
 			}
 			else 
 			{
-				printf("%15s - [%-50.50s]\n", preview[i].filename, preview[i].resume);
+				printf("%15s - (%4lu words) [%-50.50s]\n", entries[i].filename,
+					entries[i].words_counter, entries[i].content);
 			}
 		}
 		if (read(STDIN_FILENO, &input, 1) == 1)
@@ -377,12 +372,12 @@ char **select_wordlist(void)
 		}
 		milli_sleep(50);
 	}
-	char filename[64] = {"wordlists/"};
-	char *content = extract_file_content(strcat(filename, preview[selected].filename));
+	char **wordlist = split(entries[selected].content, " \n\t");
 	for (size_t i = 0; i < counter; i++)
-		free(preview[i].filename);
-	free(preview);
-	char **wordlist = split(content, " \n\t");
-	free(content);
+	{
+		free(entries[i].content);
+		free(entries[i].filename);
+	}
+	free(entries);
 	return wordlist;
 }

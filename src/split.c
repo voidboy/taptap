@@ -14,10 +14,10 @@ static bool is_in(const char c, const char *charset)
 }
 
 
-static int count_words(const char *str, const char *charset)
+size_t count_words(const char *str, const char *charset)
 {
 	int		i;
-	int		words_count;
+	size_t	words_count;
 	char	last;
 
 	words_count = 0;
@@ -80,7 +80,7 @@ char **split(const char *str, const char *charset)
 {
 	int		i;
 	int		j;
-	int		words_counter;
+	size_t	words_counter;
 	char	**s;
 
 	if (!str)

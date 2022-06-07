@@ -1,3 +1,6 @@
+#ifndef TAPTAP_H
+#define TAPTAP_H
+
 typedef struct terminal {
 	int		number_of_lines;
 	int		number_of_columns;
@@ -17,8 +20,9 @@ typedef struct word {
 	const char *value;
 } s_word;
 
-typedef struct preview {
+typedef struct entry {
 	char	*filename;
-	char	resume[256];
-} s_preview;
-
+	char	*content;
+	size_t	words_counter;
+} s_entry;
+#endif
