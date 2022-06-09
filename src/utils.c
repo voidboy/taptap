@@ -255,6 +255,7 @@ void update(s_word *words)
 			words[i].x = 0;
 		else if (words[i].x + len > terminal.number_of_columns)
 			len = terminal.number_of_columns - words[i].x;
+		
 		cursor_move(words[i].x, words[i].y);
 		select_color(words[i].x);
 		write(STDOUT_FILENO, words[i].value, len);
