@@ -20,6 +20,8 @@
 #define M_SIGQ "Received SIGQUIT, quitting.\n"
 #define M_SIGI "Received SIGINT, quitting.\n"
 #define M_SIGU "Received unhandled signal, quitting.\n"
+#define WORDS_PER_CYCLE 5
+#define SPACE_BTW_WORDS 10
 
 static s_terminal terminal =
 	(s_terminal)
@@ -30,16 +32,80 @@ static s_terminal terminal =
 		.cursor_move = NULL,
 		.foreground_color = NULL,
 		.reset_attributs = NULL,
+		.invisible_cursor = NULL,
+		.visible_cursor = NULL,
 		.is_dirty = true,
 		.is_colored = false,
 		.is_modded = false,
+		.cursor_disable = false,
 	};
 
+/* For each position generated, we checked all previous position
+and detect any overlap between words(Must have +/- 1 space between
+every position generated, if not, we try another combination */
+static bool is_availaible(s_word *words, int i)
+{
+	for (int j = 0; j < i; j++)
+	{
+		if (words[j].x == words[i].x) return false;
+		if (words[j].y != words[i].y) continue ;
+		else if (words[j].x < words[i].x)
+		{
+			if (words[j].x + words[j].len >= words[i].x - 1)
+				return false;
+		}
+		else if (words[j].x > words[i].x)
+		{
+			if (words[i].x + words[i].len >= words[j].x - 1)
+				return false;
+		}
+	}
+	return true;
+}
+
+s_word *to_words(char **wordlist, size_t words_counter)
+{
+	s_word *words;
+
+	words = malloc(sizeof(s_word) * words_counter);
+	srand(time(NULL));
+	for (size_t i = 0, count = WORDS_PER_CYCLE,
+		limit = SPACE_BTW_WORDS; i < words_counter; i++)
+	{
+		if (i == count)
+		{
+			limit += SPACE_BTW_WORDS;
+			count += WORDS_PER_CYCLE;
+		}
+		words[i].x = -1 * ((rand() % limit) + limit - SPACE_BTW_WORDS);
+		words[i].y = rand() % terminal.number_of_lines;
+		while (!is_availaible(words, i))
+		{
+			words[i].x = -1 * ((rand() % limit) + limit - SPACE_BTW_WORDS);
+			words[i].y = rand() % terminal.number_of_lines;
+		}
+		words[i].value = wordlist[i];
+		words[i].len = strlen(wordlist[i]);
+	}
+	free(wordlist);
+	return words;
+}
+
+__attribute__((always_inline)) inline static void
+	change_cursor_visibility(bool enable)
+{
+	char *change = terminal.invisible_cursor;
+
+	if (enable) change = terminal.visible_cursor;
+	write(STDOUT_FILENO, change, strlen(change));
+	terminal.cursor_disable = !enable;
+}
 
 __attribute__((always_inline)) inline static void
 	change_foreground_color(const int new_color)
 {
 	char *change = tiparm(terminal.foreground_color, new_color);
+
 	write(STDOUT_FILENO, change, strlen(change));
 	terminal.is_colored = true;
 }
@@ -48,6 +114,7 @@ __attribute__((always_inline)) inline static void
 	change_background_color(const int new_color)
 {
 	char *change = tiparm(terminal.background_color, new_color);
+
 	write(STDOUT_FILENO, change, strlen(change));
 	terminal.is_colored = true;
 }
@@ -91,7 +158,7 @@ __attribute__((always_inline)) inline static void
 	write(STDOUT_FILENO, move, strlen(move));
 }
 
-static void milli_sleep(long milliseconds)
+void milli_sleep(long milliseconds)
 {
 	struct timeval			now;
 	struct timeval			ref;
@@ -142,6 +209,7 @@ static void sigresize(int signum)
 static void sigbyebye(int signum)
 {
 	echo_and_canonical_modes(true);
+	change_cursor_visibility(true);
 	reset_color();
 	screen_clear();
 	switch (signum)
@@ -174,6 +242,8 @@ void _abort(
 		echo_and_canonical_modes(true);
 	if (terminal.is_colored)
 		reset_color();
+	if (terminal.cursor_disable)
+		change_cursor_visibility(true);
 	screen_clear();
 	dprintf(STDERR_FILENO,
 		"error - %s returned %d(%s:%d)\n",
@@ -217,6 +287,16 @@ void get_terminal_capa(void)
 		terminal.reset_attributs == (char *)-1)
 		_abort("tigetstr(\"sgr0\")",
 		(long)terminal.reset_attributs, __FILE__, __LINE__);
+	terminal.invisible_cursor = tigetstr("civis");
+	if (terminal.invisible_cursor  == NULL ||
+		terminal.invisible_cursor == (char *)-1)
+		_abort("tigetstr(\"civis\")",
+		(long)terminal.invisible_cursor, __FILE__, __LINE__);
+	terminal.visible_cursor = tigetstr("cnorm");
+	if (terminal.visible_cursor  == NULL ||
+		terminal.visible_cursor == (char *)-1)
+		_abort("tigetstr(\"cnorm\")",
+		(long)terminal.visible_cursor, __FILE__, __LINE__);
 }
 
 void get_terminal_info()
@@ -240,25 +320,38 @@ void get_terminal_info()
 		terminal.number_of_lines, __FILE__, __LINE__);
 }
 
-void update(s_word *words) 
+void update(s_word *words, size_t words_counter) 
 {
 	screen_clear();
-	for (unsigned long i = 0; i < 42; i++)
+	for (unsigned long i = 0; i < words_counter; i++)
 	{
 		if (words[i].x < 0)
 		{
-			words[i].x += 1;
-			continue ;
+			if (words[i].x + words[i].len < 0)
+			{
+				words[i].x += 1;
+				continue ;
+			}
+			else 
+			{
+				int len = words[i].x + words[i].len; 
+				cursor_move(0, words[i].y);
+				select_color(words[i].x);
+				write(STDOUT_FILENO, words[i].value + (-1 * words[i].x), len);
+			}
 		}
-		int len = strlen(words[i].value);
-		if (words[i].x >= terminal.number_of_columns)
-			words[i].x = 0;
-		else if (words[i].x + len > terminal.number_of_columns)
-			len = terminal.number_of_columns - words[i].x;
-		
-		cursor_move(words[i].x, words[i].y);
-		select_color(words[i].x);
-		write(STDOUT_FILENO, words[i].value, len);
+		else 
+		{
+			int len = words[i].len;
+			// Missed the word
+			if (words[i].x >= terminal.number_of_columns)
+				words[i].x = 0;
+			else if (words[i].x + len > terminal.number_of_columns)
+				len = terminal.number_of_columns - words[i].x;
+			cursor_move(words[i].x, words[i].y);
+			select_color(words[i].x);
+			write(STDOUT_FILENO, words[i].value, len);
+		}
 		words[i].x += 1;
 	}
 }
@@ -279,6 +372,7 @@ void setup_sigcallback(void)
 	change.sa_handler = sigresize;
 	sigaction(SIGWINCH, &change, NULL);
 	echo_and_canonical_modes(false);
+	change_cursor_visibility(false);
 }
 
 char *extract_file_content(const char *filename)
@@ -323,6 +417,7 @@ size_t get_entries(s_entry **entries)
 	rewinddir(directory);
 	for (i = 0; (current = readdir(directory)) != NULL;)
 	{
+		//TODO: vérifier que c'est bien un fichier 
 		if (strcmp(".",  current->d_name) == 0 ||
 			strcmp("..", current->d_name) == 0)
 			continue ;
@@ -337,32 +432,38 @@ size_t get_entries(s_entry **entries)
 	closedir(directory); return counter;
 }
 
-char **select_wordlist(void)
+s_entry select_wordlist(void)
 {
-	s_entry *entries = NULL;
-	size_t counter = get_entries(&entries);
-	size_t selected = 0;
-	char input;
+	char	input;
+	s_entry	ret, *entries = NULL;
+	size_t	selected = 0;
+	size_t	counter = get_entries(&entries);
+
 	for (int j = 0; 1; j++)
 	{
 		if (j == 256) j = 0;
 		screen_clear();
-		printf("\t\t\t\tpress space to select %s\n\n", entries[selected].filename);
+		printf("\t\t\t\tpress space to select %s\n\n",
+			entries[selected].filename);
 		for (size_t i = 0; i < counter; i++)
 		{
 			if (i == selected)
 			{
 				change_background_color(COLOR_WHITE);
 				change_foreground_color(COLOR_BLACK);
-				// FIXME: Sanitize preview, remove \n\t etc..
-				printf("%15s - (%4lu words) [%-50.50s]\n", entries[i].filename,
-					entries[i].words_counter, entries[i].content + j);
+				// FIXME: Sanitize preview, remove \n\t etc.., verify lengh
+				printf("%15s - (%4lu words) [%-50.50s]\n",
+					entries[i].filename,
+					entries[i].words_counter,
+					entries[i].content + j);
 				reset_color();
 			}
 			else 
 			{
-				printf("%15s - (%4lu words) [%-50.50s]\n", entries[i].filename,
-					entries[i].words_counter, entries[i].content);
+				printf("%15s - (%4lu words) [%-50.50s]\n",
+					entries[i].filename,
+					entries[i].words_counter,
+					entries[i].content);
 			}
 		}
 		if (read(STDIN_FILENO, &input, 1) == 1)
@@ -373,12 +474,12 @@ char **select_wordlist(void)
 		}
 		milli_sleep(50);
 	}
-	char **wordlist = split(entries[selected].content, " \n\t");
+	ret = entries[selected];
 	for (size_t i = 0; i < counter; i++)
 	{
+		if (i == selected) continue;
 		free(entries[i].content);
 		free(entries[i].filename);
 	}
-	free(entries);
-	return wordlist;
+	free(entries); return ret;
 }

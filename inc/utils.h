@@ -11,6 +11,8 @@ void setup_sigcallback(void);
 void display_terminal_info(void);
 void get_terminal_info();
 void get_terminal_capa();
-void update(s_word *words);
-char **select_wordlist(void);
+void update(s_word *words, size_t words_counter);
+void milli_sleep(long milliseconds);
+s_entry select_wordlist(void);
+s_word *to_words(char **wordlist, size_t words_counter);
 #endif
