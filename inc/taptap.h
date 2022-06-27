@@ -17,11 +17,19 @@ typedef struct terminal {
 	bool	cursor_disable;
 } s_terminal;	
 
+typedef enum status {
+	INVISIBLE,
+	VISIBLE,
+	MISSED,
+	VALIDATED,
+} e_status;
+
 typedef struct word {
 	int			x;
 	int			y;
 	const char *value;
 	int			len;
+	e_status	status;
 } s_word;
 
 typedef struct entry {

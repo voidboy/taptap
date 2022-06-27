@@ -16,6 +16,7 @@
 #include "taptap.h"
 #include "utils.h"
 #include "split.h"
+
 #define M_SIGS "Received SIGSEGV, quitting.\n"
 #define M_SIGQ "Received SIGQUIT, quitting.\n"
 #define M_SIGI "Received SIGINT, quitting.\n"
@@ -86,6 +87,7 @@ s_word *to_words(char **wordlist, size_t words_counter)
 		}
 		words[i].value = wordlist[i];
 		words[i].len = strlen(wordlist[i]);
+		words[i].status = INVISIBLE;
 	}
 	free(wordlist);
 	return words;
@@ -338,6 +340,7 @@ void update(s_word *words, size_t words_counter)
 				cursor_move(0, words[i].y);
 				select_color(words[i].x);
 				write(STDOUT_FILENO, words[i].value + (-1 * words[i].x), len);
+				words[i].status = VISIBLE;
 			}
 		}
 		else 
@@ -345,12 +348,15 @@ void update(s_word *words, size_t words_counter)
 			int len = words[i].len;
 			// Missed the word
 			if (words[i].x >= terminal.number_of_columns)
-				words[i].x = 0;
+				words[i].status = MISSED;
 			else if (words[i].x + len > terminal.number_of_columns)
 				len = terminal.number_of_columns - words[i].x;
-			cursor_move(words[i].x, words[i].y);
-			select_color(words[i].x);
-			write(STDOUT_FILENO, words[i].value, len);
+			if (words[i].status == VISIBLE)
+			{
+				cursor_move(words[i].x, words[i].y);
+				select_color(words[i].x);
+				write(STDOUT_FILENO, words[i].value, len);
+			}
 		}
 		words[i].x += 1;
 	}
