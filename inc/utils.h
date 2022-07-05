@@ -2,6 +2,7 @@
 #define UTILS_H
 #include "taptap.h"
 
+void stars_animation(void);
 void _abort(
 	const char *function,
 	const int return_code,

@@ -1,6 +1,9 @@
 #ifndef TAPTAP_H
 #define TAPTAP_H
 
+#include <stddef.h>
+#include <stdbool.h>
+
 typedef struct terminal {
 	int		number_of_lines;
 	int		number_of_columns;
@@ -37,4 +40,10 @@ typedef struct entry {
 	char	*content;
 	size_t	words_counter;
 } s_entry;
+
+typedef struct star {
+	int		x;
+	int		y;
+	short	speed;
+} s_star;
 #endif
