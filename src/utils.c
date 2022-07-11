@@ -90,6 +90,7 @@ void update(s_word *words, size_t words_counter)
 
 	for (unsigned long i = 0; i < words_counter; i++)
 	{
+		if (words[i].status & (MISSED | VALIDATED)) continue ;
 		if (words[i].x < 0)
 		{
 			if (words[i].x + words[i].len < 0)

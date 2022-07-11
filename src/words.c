@@ -24,7 +24,7 @@ and detect any overlap between words(Must have +/- 1 space between
 every position generated, if not, we try another combination */
 static bool is_availaible(s_word *words, int i)
 {
-	for (int j = 0; j < i; j++)
+	for (int j = i - 1; j >=0 && j > i - WORDS_PER_CYCLE * 3; j--)
 	{
 		if (words[j].x == words[i].x) return false;
 		if (words[j].y != words[i].y) continue ;
@@ -40,6 +40,19 @@ static bool is_availaible(s_word *words, int i)
 		}
 	}
 	return true;
+}
+
+bool check_words(char *input, s_word *words, size_t words_counter)
+{
+	for (size_t i = 0; i < words_counter; i++)
+	{
+		if (words[i].x < 0 ||
+			words[i].status & (MISSED | VALIDATED))
+			continue ;
+		if (!strcmp(words[i].value, input))
+			return (words[i].status = VALIDATED);
+	}
+	return false;
 }
 
 char *extract_file_content(const char *filename)
@@ -79,15 +92,15 @@ s_word *to_words(char **wordlist, size_t words_counter)
 		words[i].x = -1 *
 			((rand() % limit) + limit - SPACE_BTW_WORDS);
 		words[i].y = rand() % terminal.number_of_lines;
+		words[i].value = wordlist[i];
+		words[i].len = strlen(wordlist[i]);
+		words[i].status = INVISIBLE;
 		while (!is_availaible(words, i))
 		{
 			words[i].x = -1 *
 				((rand() % limit) + limit - SPACE_BTW_WORDS);
 			words[i].y = rand() % terminal.number_of_lines;
 		}
-		words[i].value = wordlist[i];
-		words[i].len = strlen(wordlist[i]);
-		words[i].status = INVISIBLE;
 	}
 	free(wordlist);
 	return words;

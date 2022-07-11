@@ -80,7 +80,7 @@ char **split(const char *str, const char *charset)
 {
 	int		i;
 	int		j;
-	size_t	words_counter;
+	size_t	counter_words;
 	char	**s;
 
 	if (!str)
@@ -89,13 +89,15 @@ char **split(const char *str, const char *charset)
 		return (NULL);
 	i = 0;
 	j = 0;
-	words_counter = 0;
-	while (words_counter < count_words(str, charset))
+	counter_words = 0;
+	const size_t total_words = count_words(str, charset);
+	
+	while (counter_words < total_words)
 	{
 		while (is_in(str[i], charset))
 			i++;
 		i += find_next_word(s[j++], str + i, charset);
-		words_counter++;
+		counter_words++;
 	}
 	return (s);
 }

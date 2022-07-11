@@ -15,8 +15,11 @@
 
 int main(void)
 {
-	struct timeval ref;
-	struct timeval now;
+	struct timeval 	ref;
+	struct timeval 	now;
+	int				cursor = 0;
+	size_t			validated = 0;
+	char			c[50] = {0};
 
 
 	get_terminal_info();
@@ -33,20 +36,29 @@ int main(void)
 	gettimeofday(&ref, NULL);
 	while (1) 
 	{
-		char c[50];
-		int value;
-		ioctl(STDIN_FILENO, TIOCINQ, &value);
 		screen_clear();
 		gettimeofday(&now, NULL);
-		cursor_move(10, 10);
-		change_foreground_color(COLOR_WHITE);
-		printf("%3.2f\n",
-			(now.tv_sec - ref.tv_sec) + 
-			(double)now.tv_usec * 1e-6);
 		stars_animation();	
 		update(words, wordlist.words_counter);
-		c[read(STDIN_FILENO, c, value)] = '\0';
-		//printf("RECEIVED %s\n", c);
+		if (read(STDIN_FILENO, &c[cursor], 1) == 1)
+		{
+			if (c[cursor] == 0x7f)
+				c[cursor > 0 ? --cursor : cursor] = '\0';
+			else
+				c[++cursor] = '\0';
+			if (check_words(c, words, wordlist.words_counter))
+			{
+				validated++;
+				c[0] = '\0';
+				cursor = 0;
+			}
+		}
+		cursor_move(10, 10);
+		change_foreground_color(COLOR_WHITE);
+		printf("[%15s] %3.2f %3ld/%3ld\n", c,
+			(now.tv_sec - ref.tv_sec) + 
+			(double)now.tv_usec * 1e-6,
+			validated, wordlist.words_counter);
 		milli_sleep(5);
 	}
 	//display_terminal_info(&terminal);

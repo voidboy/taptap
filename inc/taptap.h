@@ -21,10 +21,10 @@ typedef struct terminal {
 } s_terminal;	
 
 typedef enum status {
-	INVISIBLE,
-	VISIBLE,
-	MISSED,
-	VALIDATED,
+	INVISIBLE = 1,
+	VISIBLE = 2,
+	MISSED = 4,
+	VALIDATED = 8,
 } e_status;
 
 typedef struct word {
