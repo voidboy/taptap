@@ -83,38 +83,25 @@ void milli_sleep(long milliseconds)
 	}
 }
 
-void update(s_word *words, size_t words_counter) 
+void display_words(s_word *words, size_t words_counter) 
 {
-	static short difficulty = 100;
-	static short tik = 0;
-
 	for (unsigned long i = 0; i < words_counter; i++)
 	{
 		if (words[i].status & (MISSED | VALIDATED)) continue ;
 		if (words[i].x < 0)
 		{
-			if (words[i].x + words[i].len < 0)
-			{
-				if (tik == difficulty)
-					words[i].x += 1;
-				continue ;
-			}
-			else 
+			if (words[i].x + words[i].len >= 0)
 			{
 				int len = words[i].x + words[i].len; 
 				cursor_move(0, words[i].y);
 				select_color(words[i].x);
 				write(STDOUT_FILENO, words[i].value + (-1 * words[i].x), len);
-				words[i].status = VISIBLE;
 			}
 		}
 		else 
 		{
 			int len = words[i].len;
-			// Missed the word
-			if (words[i].x >= terminal.number_of_columns)
-				words[i].status = MISSED;
-			else if (words[i].x + len > terminal.number_of_columns)
+			if (words[i].x + len > terminal.number_of_columns)
 				len = terminal.number_of_columns - words[i].x;
 			if (words[i].status == VISIBLE)
 			{
@@ -123,8 +110,21 @@ void update(s_word *words, size_t words_counter)
 				write(STDOUT_FILENO, words[i].value, len);
 			}
 		}
-		if (tik == difficulty)
-			words[i].x += 1;
 	}
-	if (++tik > difficulty) tik = 0;
+}
+
+void update_words(s_word *words, size_t words_counter) 
+{
+	for (unsigned long i = 0; i < words_counter; i++)
+	{
+		if (words[i].status & (MISSED | VALIDATED)) continue ;
+		if (words[i].x < 0)
+		{
+			if (words[i].x + words[i].len >= 0)
+				words[i].status = VISIBLE;
+		}
+		else if (words[i].x >= terminal.number_of_columns)
+			words[i].status = MISSED;
+		words[i].x += 1;
+	}
 }

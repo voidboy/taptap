@@ -24,18 +24,18 @@ and detect any overlap between words(Must have +/- 1 space between
 every position generated, if not, we try another combination */
 static bool is_availaible(s_word *words, int i)
 {
-	for (int j = i - 1; j >=0 && j > i - WORDS_PER_CYCLE * 3; j--)
+	for (int j = i - 1; j >= 0 && j > i - WORDS_PER_CYCLE * 3; j--)
 	{
-		if (words[j].x == words[i].x) return false;
-		if (words[j].y != words[i].y) continue ;
-		else if (words[j].x < words[i].x)
-		{
-			if (words[j].x + words[j].len >= words[i].x - 1)
-				return false;
-		}
-		else if (words[j].x > words[i].x)
+		if (words[i].y != words[j].y) continue ;
+		if (words[i].x == words[j].x) return false;
+		else if (words[i].x < words[j].x)
 		{
 			if (words[i].x + words[i].len >= words[j].x - 1)
+				return false;
+		}
+		else if (words[i].x > words[j].x)
+		{
+			if (words[j].x + words[j].len >= words[i].x - 1)
 				return false;
 		}
 	}
@@ -46,10 +46,7 @@ bool check_words(char *input, s_word *words, size_t words_counter)
 {
 	for (size_t i = 0; i < words_counter; i++)
 	{
-		if (words[i].x < 0 ||
-			words[i].status & (MISSED | VALIDATED))
-			continue ;
-		if (!strcmp(words[i].value, input))
+		if (words[i].status == VISIBLE && !strcmp(words[i].value, input))
 			return (words[i].status = VALIDATED);
 	}
 	return false;
@@ -90,7 +87,7 @@ s_word *to_words(char **wordlist, size_t words_counter)
 			count += WORDS_PER_CYCLE;
 		}
 		words[i].x = -1 *
-			((rand() % limit) + limit - SPACE_BTW_WORDS);
+			((rand() % SPACE_BTW_WORDS) + limit - SPACE_BTW_WORDS);
 		words[i].y = rand() % terminal.number_of_lines;
 		words[i].value = wordlist[i];
 		words[i].len = strlen(wordlist[i]);
@@ -98,7 +95,7 @@ s_word *to_words(char **wordlist, size_t words_counter)
 		while (!is_availaible(words, i))
 		{
 			words[i].x = -1 *
-				((rand() % limit) + limit - SPACE_BTW_WORDS);
+				((rand() % SPACE_BTW_WORDS) + limit - SPACE_BTW_WORDS);
 			words[i].y = rand() % terminal.number_of_lines;
 		}
 	}

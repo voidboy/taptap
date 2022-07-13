@@ -39,7 +39,8 @@ int main(void)
 		screen_clear();
 		gettimeofday(&now, NULL);
 		stars_animation();	
-		update(words, wordlist.words_counter);
+		update_words(words, wordlist.words_counter);
+		display_words(words, wordlist.words_counter);
 		if (read(STDIN_FILENO, &c[cursor], 1) == 1)
 		{
 			if (c[cursor] == 0x7f)
