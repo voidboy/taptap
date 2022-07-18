@@ -14,9 +14,10 @@
 #include <limits.h>
 #include "taptap.h"
 #include "foo.h"
+#include "words.h"
 #include "hsignal.h"
 
-static void init_stars(s_star **stars)
+void init_stars(s_star **stars)
 {
 	const int stars_counter = 0.10f * terminal.number_of_lines;
 
@@ -25,28 +26,23 @@ static void init_stars(s_star **stars)
 		_abort("malloc", 0, __FILE__, __LINE__);
 	for (int i = 0; i < stars_counter; i++)
 	{
-		(*stars)[i].x = -1 * (rand() %
-			(terminal.number_of_columns / 3));
+		(*stars)[i].speed = rand() % 3;
+		(*stars)[i].x = -(*stars)[i].speed;
 		(*stars)[i].y = rand() % terminal.number_of_lines;
-		(*stars)[i].speed = (rand() % 3) + 1;
 	}
 }
 
-void stars_animation(void)
+void stars_animation(s_star *stars, const short stars_speed)
 {
-	static s_star	*stars = NULL;
-	static short	speed = 1;
-	const short		stars_counter = 0.10f * terminal.number_of_lines;
+	const short	stars_counter = 0.10f * terminal.number_of_lines;
 	
-
-	if (!stars) init_stars(&stars);
 
 	for (int i = 0; i < stars_counter; i++)
 	{
-		if (stars[i].x >= terminal.number_of_columns)
+		if (stars[i].x == terminal.number_of_columns)
 		{
-			stars[i].x = -1 * (rand() % 
-				(terminal.number_of_columns / 3));
+			stars[i].speed = rand() % 3;
+			stars[i].x = -stars[i].speed;
 			stars[i].y = rand() % terminal.number_of_lines;
 		}
 		else if (stars[i].x >= 0)
@@ -55,12 +51,11 @@ void stars_animation(void)
 			change_foreground_color(COLOR_WHITE);
 			write(STDOUT_FILENO, ".", 1);
 		}
-		if (stars[i].speed <= speed) stars[i].x += 1;
+		if (stars[i].speed <= stars_speed) stars[i].x += 1;
 	}
-	if (++speed > 3) speed = 0;
 }
 
-void milli_sleep(long milliseconds)
+void milli_sleep(const long milliseconds)
 {
 	struct timeval			now;
 	struct timeval			ref;
@@ -83,48 +78,44 @@ void milli_sleep(long milliseconds)
 	}
 }
 
-void display_words(s_word *words, size_t words_counter) 
+void display_words(s_llist *Wwords) 
 {
-	for (unsigned long i = 0; i < words_counter; i++)
+	const s_node *current_node = Wwords->head;
+	while (current_node)
 	{
-		if (words[i].status & (MISSED | VALIDATED)) continue ;
-		if (words[i].x < 0)
+		if (current_node->word->x < 0)
 		{
-			if (words[i].x + words[i].len >= 0)
+			if (current_node->word->x + current_node->word->len >= 0)
 			{
-				int len = words[i].x + words[i].len; 
-				cursor_move(0, words[i].y);
-				select_color(words[i].x);
-				write(STDOUT_FILENO, words[i].value + (-1 * words[i].x), len);
+				int len = current_node->word->x + current_node->word->len; 
+				cursor_move(0, current_node->word->y);
+				select_color(current_node->word->x);
+				write(STDOUT_FILENO, current_node->word->value +
+					(-1 * current_node->word->x), len);
 			}
 		}
 		else 
 		{
-			int len = words[i].len;
-			if (words[i].x + len > terminal.number_of_columns)
-				len = terminal.number_of_columns - words[i].x;
-			if (words[i].status == VISIBLE)
-			{
-				cursor_move(words[i].x, words[i].y);
-				select_color(words[i].x);
-				write(STDOUT_FILENO, words[i].value, len);
-			}
+			int len = current_node->word->len;
+			if (current_node->word->x + len > terminal.number_of_columns)
+				len = terminal.number_of_columns - current_node->word->x;
+			cursor_move(current_node->word->x, current_node->word->y);
+			select_color(current_node->word->x);
+			write(STDOUT_FILENO, current_node->word->value, len);
 		}
+		current_node = current_node->next;
 	}
 }
 
-void update_words(s_word *words, size_t words_counter) 
+void update_words(s_llist *Wwords, s_llist *Fwords) 
 {
-	for (unsigned long i = 0; i < words_counter; i++)
+	s_node *current_node = Wwords->head;
+	while (current_node)
 	{
-		if (words[i].status & (MISSED | VALIDATED)) continue ;
-		if (words[i].x < 0)
-		{
-			if (words[i].x + words[i].len >= 0)
-				words[i].status = VISIBLE;
-		}
-		else if (words[i].x >= terminal.number_of_columns)
-			words[i].status = MISSED;
-		words[i].x += 1;
+		if (current_node->word->x == terminal.number_of_columns)
+			remove_node(Wwords, current_node, Fwords);
+		else
+			current_node->word->x += 1;
+		current_node = current_node->next;
 	}
 }

@@ -20,19 +20,21 @@ __attribute__((always_inline)) inline static void
 __attribute__((always_inline)) inline static void
 	change_foreground_color(const int new_color)
 {
+	if (new_color == terminal.Cforeground_color) return;
 	char *change = tiparm(terminal.foreground_color, new_color);
 
 	write(STDOUT_FILENO, change, strlen(change));
-	terminal.is_colored = true;
+	terminal.Cforeground_color = new_color;
 }
 
 __attribute__((always_inline)) inline static void
 	change_background_color(const int new_color)
 {
+	if (new_color == terminal.Cbackground_color) return;
 	char *change = tiparm(terminal.background_color, new_color);
 
 	write(STDOUT_FILENO, change, strlen(change));
-	terminal.is_colored = true;
+	terminal.Cbackground_color = new_color;
 }
 
 __attribute__((always_inline)) inline static void
@@ -54,7 +56,8 @@ __attribute__((always_inline)) inline static void
 	write(STDOUT_FILENO,
 		terminal.reset_attributs,
 		strlen(terminal.reset_attributs));
-	terminal.is_colored = false;
+	terminal.Cforeground_color = COLOR_WHITE;
+	terminal.Cbackground_color = COLOR_BLACK;
 }
 
 __attribute__((always_inline)) inline static void

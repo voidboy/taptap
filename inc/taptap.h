@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#define WORDS_PER_CYCLE 5
+
 typedef struct terminal {
 	int		number_of_lines;
 	int		number_of_columns;
@@ -15,24 +17,17 @@ typedef struct terminal {
 	char	*invisible_cursor;
 	char	*visible_cursor;
 	bool	is_dirty;
-	bool	is_colored;
 	bool	is_modded;
 	bool	cursor_disable;
+	int		Cforeground_color;
+	int		Cbackground_color;
 } s_terminal;	
 
-typedef enum status {
-	INVISIBLE = 1,
-	VISIBLE = 2,
-	MISSED = 4,
-	VALIDATED = 8,
-} e_status;
-
 typedef struct word {
-	int			x;
-	int			y;
-	const char *value;
-	int			len;
-	e_status	status;
+	int		x;
+	int		y;
+	char	*value;
+	int		len;
 } s_word;
 
 typedef struct entry {
@@ -46,4 +41,22 @@ typedef struct star {
 	int		y;
 	short	speed;
 } s_star;
+
+typedef struct pool {
+	s_word	*words;
+	size_t	size;
+	size_t	cursor;
+} s_pool;
+
+typedef struct node {
+	s_word		*word;
+	struct node	*next;
+	struct node	*last;
+} s_node;
+
+typedef struct llist {
+	s_node	*head;
+	s_node	*tail;
+	size_t	size;
+} s_llist;	
 #endif

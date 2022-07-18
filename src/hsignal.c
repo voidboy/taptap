@@ -20,7 +20,7 @@ void _abort(
 {
 	if (terminal.is_modded)
 		echo_and_canonical_modes(true);
-	if (terminal.is_colored)
+	if (is_terminal_colored())
 		reset_color();
 	if (terminal.cursor_disable)
 		change_cursor_visibility(true);

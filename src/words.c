@@ -16,38 +16,53 @@
 #include "utils.h"
 #include "split.h"
 
-#define WORDS_PER_CYCLE 5
-#define SPACE_BTW_WORDS 10
-
-/* For each position generated, we checked all previous position
-and detect any overlap between words(Must have +/- 1 space between
-every position generated, if not, we try another combination */
-static bool is_availaible(s_word *words, int i)
+void remove_node(s_llist *Wwords, s_node *node, s_llist *Fwords)
 {
-	for (int j = i - 1; j >= 0 && j > i - WORDS_PER_CYCLE * 3; j--)
+	if (node->last)
+		node->last->next = node->next;
+	else
 	{
-		if (words[i].y != words[j].y) continue ;
-		if (words[i].x == words[j].x) return false;
-		else if (words[i].x < words[j].x)
-		{
-			if (words[i].x + words[i].len >= words[j].x - 1)
-				return false;
-		}
-		else if (words[i].x > words[j].x)
-		{
-			if (words[j].x + words[j].len >= words[i].x - 1)
-				return false;
-		}
+		Wwords->head = node->next;
+		if (node->next)
+			node->next->last = NULL;
 	}
-	return true;
+	if (node->next)
+		node->next->last = node->last;
+	else
+	{
+		Wwords->tail = node->last;
+		if (node->last)
+			node->last->next = NULL;
+	}
+	node->next = NULL;
+	free(node->word->value);
+	if (Fwords->tail) 
+	{
+		Fwords->tail->next = node;
+		node->last = Fwords->tail;
+		Fwords->tail = node;
+	}
+	else
+	{
+		Fwords->head = node;
+		Fwords->tail = node;
+		node->last = NULL;
+	}
+	Fwords->size += 1;
 }
 
-bool check_words(char *input, s_word *words, size_t words_counter)
+
+bool check_words(char *input, s_llist *Wwords, s_llist *Fwords)
 {
-	for (size_t i = 0; i < words_counter; i++)
+	s_node *current_node = Wwords->head;
+	while (current_node)
 	{
-		if (words[i].status == VISIBLE && !strcmp(words[i].value, input))
-			return (words[i].status = VALIDATED);
+		if (!strcmp(current_node->word->value, input))
+		{
+			remove_node(Wwords, current_node, Fwords);
+			return true;
+		}
+		current_node = current_node->next;
 	}
 	return false;
 }
@@ -73,34 +88,18 @@ char *extract_file_content(const char *filename)
 }
 
 
-s_word *to_words(char **wordlist, size_t words_counter)
+s_word *to_words(char **splitted, size_t splitted_size)
 {
-	s_word *words;
-
-	words = malloc(sizeof(s_word) * words_counter);
-	for (size_t i = 0, count = WORDS_PER_CYCLE,
-		limit = SPACE_BTW_WORDS; i < words_counter; i++)
+	s_word *words_pool = malloc(sizeof(s_word) * splitted_size);
+	for (size_t i = 0; i < splitted_size; i++)
 	{
-		if (i == count)
-		{
-			limit += SPACE_BTW_WORDS;
-			count += WORDS_PER_CYCLE;
-		}
-		words[i].x = -1 *
-			((rand() % SPACE_BTW_WORDS) + limit - SPACE_BTW_WORDS);
-		words[i].y = rand() % terminal.number_of_lines;
-		words[i].value = wordlist[i];
-		words[i].len = strlen(wordlist[i]);
-		words[i].status = INVISIBLE;
-		while (!is_availaible(words, i))
-		{
-			words[i].x = -1 *
-				((rand() % SPACE_BTW_WORDS) + limit - SPACE_BTW_WORDS);
-			words[i].y = rand() % terminal.number_of_lines;
-		}
+		words_pool[i].value = splitted[i];
+		words_pool[i].len = strlen(splitted[i]);
+		words_pool[i].x = -words_pool[i].len;
+		words_pool[i].y = rand() % terminal.number_of_lines;
 	}
-	free(wordlist);
-	return words;
+	free(splitted);
+	return words_pool;
 }
 
 size_t get_entries(s_entry **entries)

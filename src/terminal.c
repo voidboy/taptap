@@ -12,14 +12,24 @@ s_terminal terminal = (s_terminal)
 	.screen_clear = NULL,
 	.cursor_move = NULL,
 	.foreground_color = NULL,
+	.background_color = NULL,
 	.reset_attributs = NULL,
 	.invisible_cursor = NULL,
 	.visible_cursor = NULL,
 	.is_dirty = true,
-	.is_colored = false,
 	.is_modded = false,
 	.cursor_disable = false,
+	.Cforeground_color = COLOR_WHITE,
+	.Cbackground_color = COLOR_BLACK,
 };
+
+bool is_terminal_colored(void)
+{
+	if (terminal.Cforeground_color != COLOR_WHITE ||
+		terminal.Cbackground_color != COLOR_BLACK)
+		return true;
+	else return false;
+}
 
 void echo_and_canonical_modes(bool enable)
 {
