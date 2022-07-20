@@ -18,16 +18,28 @@ void increase_Wwords(s_llist *Wwords, s_llist *Fwords, s_pool *words_pool)
 	if (Fwords->size >= WORDS_PER_CYCLE)
 	{
 		s_node *free_node = Fwords->head;
+		free_node->last = Wwords->tail;
+		if (!Wwords->head)
+			Wwords->head = free_node;
 		for (int i = 0; i < WORDS_PER_CYCLE; i++)
 		{
 			free_node->word = &words_pool->words[words_pool->cursor++];
 			free_node = free_node->next;
 		}
+		if (Wwords->tail)
+			Wwords->tail->next = Fwords->head;
 		Fwords->head = free_node;
 		if (free_node)
+		{
+			Wwords->tail = free_node->last;
 			free_node->last = NULL;
+		}
 		else
+		{
+			Wwords->tail = Fwords->tail;
 			Fwords->tail = NULL;
+		}
+		Wwords->tail->next = NULL;
 		Fwords->size -= WORDS_PER_CYCLE;
 	}
 	else 
@@ -55,6 +67,7 @@ int main(void)
 
 	int				cursor = 0;
 	size_t			validated = 0;
+	size_t			wpm = 0, counter = 0;
 	size_t			tick = 0;
 	char			c[50] = {0};
 
@@ -91,16 +104,26 @@ int main(void)
 	increase_Wwords(&wait_words, &free_words, &words_pool);
 	while (1) 
 	{
-		screen_clear();
 		gettimeofday(&now, NULL);
+		screen_clear();
 		stars_animation(stars, tick % 3);	
-		if (tick % 100 == 0)
+
+		const double delta_time = 
+			(now.tv_sec + (double)now.tv_usec * 1e-6) - 
+			(ref.tv_sec + (double)ref.tv_usec * 1e-6);
+		if (tick && tick % 100 == 0)
+		{
 			update_words(&wait_words, &free_words);
+			wpm = (counter / 5) / (delta_time / 60);
+		}
 		display_words(&wait_words);
 		if (read(STDIN_FILENO, &c[cursor], 1) == 1)
 		{
+			counter++;
 			if (c[cursor] == 0x7f)
 				c[cursor > 0 ? --cursor : cursor] = '\0';
+			else if (c[cursor] == 0x1b)
+				break ;
 			else
 				c[++cursor] = '\0';
 			if (check_words(c, &wait_words, &free_words))
@@ -112,18 +135,14 @@ int main(void)
 		}
 		cursor_move(10, 10);
 		change_foreground_color(COLOR_WHITE);
-		printf("[%15s] %3.2f %3ld/%3ld\n", c,
-			(now.tv_sec - ref.tv_sec) + 
-			(double)now.tv_usec * 1e-6,
-			validated, wordlist.words_counter);
-		if (tick++ == 500)
+		printf("[%15s] %3.2f %3ld/%3ld - %ld WPM\n", c,
+			delta_time, validated, wordlist.words_counter, wpm);
+		if (tick++ == 1000)
 		{
 			increase_Wwords(&wait_words, &free_words, &words_pool);
 			tick = 0;
 		}
 		milli_sleep(5);
 	}
-	//display_terminal_info(&terminal);
-
 	return 0;
 }

@@ -87,16 +87,37 @@ char *extract_file_content(const char *filename)
 	return content;
 }
 
+static bool is_availaible(s_word *words_pool, int i)
+{
+	const s_word w1 = words_pool[i];
+
+	for (int j = i - 1; j >= 0 && j > i - WORDS_PER_CYCLE * 3; j--)
+	{
+		const s_word w2 = words_pool[j];
+		if (w1.y != w2.y) continue ;
+		if (w1.x == w2.x) return false;
+		if (w1.x > w2.x)
+			if (w2.x + w2.len >= w1.x)
+				return false;
+		if (w1.x < w2.x)
+			if (w1.x + w1.len >= w2.x)
+				return false;
+	}
+	return true;
+}
 
 s_word *to_words(char **splitted, size_t splitted_size)
 {
 	s_word *words_pool = malloc(sizeof(s_word) * splitted_size);
-	for (size_t i = 0; i < splitted_size; i++)
+	for (int i = 0; (size_t)i < splitted_size; i++)
 	{
 		words_pool[i].value = splitted[i];
 		words_pool[i].len = strlen(splitted[i]);
 		words_pool[i].x = -words_pool[i].len;
 		words_pool[i].y = rand() % terminal.number_of_lines;
+		while (!is_availaible(words_pool, i))
+			words_pool[i].y = (words_pool[i].y + 1) 
+							% terminal.number_of_lines;
 	}
 	free(splitted);
 	return words_pool;
